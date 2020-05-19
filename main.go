@@ -101,7 +101,12 @@ func (s *RepoScanner) AddRepo(owner string, repo string, label []string) (string
 
 func (s *RepoScanner) scanIssues(repo *Repo) error {
 	fmt.Printf("Scanning for new Issues and Comments updates for Repo %v\n", repo)
-	issues, _, err := s.client.Issues.ListByRepo(context.Background(), repo.owner, repo.repo, &github.IssueListByRepoOptions{Labels: repo.label})
+	issues, _, err := s.client.Issues.ListByRepo(
+		context.Background(),
+		repo.owner,
+		repo.repo,
+		&github.IssueListByRepoOptions{Labels: repo.label},
+	)
 	if err != nil {
 		return err
 	}
@@ -172,7 +177,7 @@ func (r *Repo) addComment(issue *github.Issue, comment *github.IssueComment) {
 		Created:     *comment.CreatedAt,
 	})
 
-	r.commentsCount[*issue.ID] = r.commentsCount[*issue.ID] + 1
+	r.commentsCount[*issue.ID]++
 	r.commentsTime[*issue.ID] = *comment.CreatedAt
 }
 
@@ -183,7 +188,7 @@ func (s *RepoScanner) getFeed(hash string) (*feeds.Feed, error) {
 	}
 
 	if len(numbers) != 1 {
-		return nil, errors.New("Invalid Feed Hash")
+		return nil, errors.New("invalid Feed Hash")
 	}
 
 	return s.feed[numbers[0]], nil
@@ -280,10 +285,15 @@ func main() {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: os.Getenv("RSS_FEED_GITHUB_TOKEN")},
 	)
+
 	tc := oauth2.NewClient(ctx, ts)
 
 	scanner := NewRepoScanner(github.NewClient(tc), 5, h)
-	feedHash, err := scanner.AddRepo(os.Getenv("RSS_FEED_DEFAULT_ORG"), os.Getenv("RSS_FEED_DEFAULT_REPO"), []string{os.Getenv("RSS_FEED_DEFAULT_LABEL")})
+	feedHash, err := scanner.AddRepo(
+		os.Getenv("RSS_FEED_DEFAULT_ORG"),
+		os.Getenv("RSS_FEED_DEFAULT_REPO"),
+		[]string{os.Getenv("RSS_FEED_DEFAULT_LABEL")},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
