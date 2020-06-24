@@ -266,7 +266,7 @@ func main() {
 	hd.MinLength = 8
 
 	if os.Getenv("RSS_FEED_SALT") != "" {
-		hd.Salt = os.Getenv("RSS_FEED_GITHUB_TOKEN")
+		hd.Salt = os.Getenv("RSS_FEED_SALT")
 	}
 
 	h, err := hashids.NewWithData(hd)
