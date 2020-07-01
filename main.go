@@ -45,12 +45,12 @@ func NewRepoScanner(client *github.Client, delay int, hash *hashids.HashID) *Rep
 
 func (s *RepoScanner) Start() {
 	for {
-		fmt.Println("Starting Scanner")
+		log.Println("Starting Scanner")
 		for i := range s.repo {
-			fmt.Printf("Scanning %v\n", s.repo[i])
+			log.Printf("Scanning %v\n", s.repo[i])
 			err := s.scanIssues(s.repo[i])
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		}
 		time.Sleep(time.Duration(s.delay) * time.Minute)
@@ -94,13 +94,13 @@ func (s *RepoScanner) AddRepo(owner string, repo string, label []string) (string
 		commentsTime:  make(map[int64]time.Time),
 	})
 
-	fmt.Printf("Created new Feed %v for Repo %v/%v with lables %v\n", hash, owner, repo, label)
+	log.Printf("Created new Feed %v for Repo %v/%v with lables %v\n", hash, owner, repo, label)
 
 	return hash, nil
 }
 
 func (s *RepoScanner) scanIssues(repo *Repo) error {
-	fmt.Printf("Scanning for new Issues and Comment updates for Repo %v\n", repo)
+	log.Printf("Scanning for new Issues and Comment updates for Repo %v\n", repo)
 
 	var issues []*github.Issue
 	page := 0
@@ -124,12 +124,12 @@ func (s *RepoScanner) scanIssues(repo *Repo) error {
 		}
 	}
 
-	fmt.Printf("%v matching issues found for Repo %v\n", len(issues), repo)
+	log.Printf("%v matching issues found for Repo %v\n", len(issues), repo)
 
 	for _, issue := range issues {
 		val, ok := repo.commentsCount[*issue.ID]
 		if !ok {
-			fmt.Printf("Found new Issue (%v)\n", *issue.Title)
+			log.Printf("Found new Issue (%v)\n", *issue.Title)
 			repo.addIssue(issue)
 			err := s.scanComments(repo, issue, repo.commentsTime[*issue.ID])
 			if err != nil {
@@ -139,7 +139,7 @@ func (s *RepoScanner) scanIssues(repo *Repo) error {
 		}
 
 		if *issue.Comments > val {
-			fmt.Printf("Repo: %v Issue %v has new Comments, adding them\n", repo, *issue.Title)
+			log.Printf("Repo: %v Issue %v has new Comments, adding them\n", repo, *issue.Title)
 			err := s.scanComments(repo, issue, repo.commentsTime[*issue.ID])
 			if err != nil {
 				return err
@@ -332,7 +332,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Hash for default feed is:", feedHash)
+	log.Println("Hash for default feed is:", feedHash)
 
 	go scanner.Start()
 
@@ -341,5 +341,5 @@ func main() {
 	r.HandleFunc("/atom/{hash}", createAtomHandler(scanner))
 	r.HandleFunc("/json/{hash}", createJSONHandler(scanner))
 
-	fmt.Println(http.ListenAndServe(":8080", r))
+	log.Println(http.ListenAndServe(":8080", r))
 }
