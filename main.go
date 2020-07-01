@@ -100,16 +100,31 @@ func (s *RepoScanner) AddRepo(owner string, repo string, label []string) (string
 }
 
 func (s *RepoScanner) scanIssues(repo *Repo) error {
-	fmt.Printf("Scanning for new Issues and Comments updates for Repo %v\n", repo)
-	issues, _, err := s.client.Issues.ListByRepo(
-		context.Background(),
-		repo.owner,
-		repo.repo,
-		&github.IssueListByRepoOptions{Labels: repo.label},
-	)
-	if err != nil {
-		return err
+	fmt.Printf("Scanning for new Issues and Comment updates for Repo %v\n", repo)
+
+	var issues []*github.Issue
+	page := 0
+
+	for {
+		page++
+		i, _, err := s.client.Issues.ListByRepo(
+			context.Background(),
+			repo.owner,
+			repo.repo,
+			&github.IssueListByRepoOptions{State: "all", ListOptions: github.ListOptions{PerPage: 100, Page: page}, Labels: repo.label},
+		)
+		if err != nil {
+			return err
+		}
+
+		issues = append(issues, i...)
+
+		if len(i) != 100 {
+			break
+		}
 	}
+
+	fmt.Printf("%v matching issues found for Repo %v\n", len(issues), repo)
 
 	for _, issue := range issues {
 		val, ok := repo.commentsCount[*issue.ID]
@@ -136,10 +151,15 @@ func (s *RepoScanner) scanIssues(repo *Repo) error {
 }
 
 func (r *Repo) addIssue(issue *github.Issue) {
+	des := "no description given"
+	if issue.Body != nil {
+		des = *issue.Body
+	}
+
 	r.feed.Add(&feeds.Item{
 		Title:       fmt.Sprintf("New Issue '%v' with matching lables found", *issue.Title),
 		Link:        &feeds.Link{Href: *issue.URL},
-		Description: *issue.Body,
+		Description: des,
 		Author:      &feeds.Author{Name: *issue.User.Login},
 		Created:     *issue.CreatedAt,
 	})
@@ -151,14 +171,28 @@ func (r *Repo) addIssue(issue *github.Issue) {
 func (s *RepoScanner) scanComments(repo *Repo, issue *github.Issue, since time.Time) error {
 	sinceAdd := since.Add(1 * time.Second)
 
-	comments, _, err := s.client.Issues.ListComments(context.Background(),
-		repo.owner, repo.repo, *issue.Number,
-		&github.IssueListCommentsOptions{
-			Since: &sinceAdd,
-		},
-	)
-	if err != nil {
-		return err
+	var comments []*github.IssueComment
+	page := 0
+
+	for {
+		page++
+
+		c, _, err := s.client.Issues.ListComments(context.Background(),
+			repo.owner, repo.repo, *issue.Number,
+			&github.IssueListCommentsOptions{
+				ListOptions: github.ListOptions{PerPage: 100, Page: page},
+				Since:       &sinceAdd,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		comments = append(comments, c...)
+
+		if len(c) != 100 {
+			break
+		}
 	}
 
 	for _, comment := range comments {
